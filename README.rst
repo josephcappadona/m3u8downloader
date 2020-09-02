@@ -1,3 +1,5 @@
+Disclaimer: I did not create this library, I have only made minor modifications. Original project homepage can be found here: https://pypi.org/project/m3u8downloader/.
+
 m3u8downloader
 ============================
 
