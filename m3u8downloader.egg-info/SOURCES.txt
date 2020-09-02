@@ -1,0 +1,16 @@
+MANIFEST.in
+README.rst
+requirements.txt
+setup.cfg
+setup.py
+m3u8downloader/__init__.py
+m3u8downloader/configlogger.py
+m3u8downloader/logger.conf
+m3u8downloader/main.py
+m3u8downloader.egg-info/PKG-INFO
+m3u8downloader.egg-info/SOURCES.txt
+m3u8downloader.egg-info/dependency_links.txt
+m3u8downloader.egg-info/entry_points.txt
+m3u8downloader.egg-info/requires.txt
+m3u8downloader.egg-info/top_level.txt
+utils/versionutils.py

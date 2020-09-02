@@ -1,0 +1,3 @@
+global-exclude test_*.py
+include utils/versionutils.py
+include requirements.txt
