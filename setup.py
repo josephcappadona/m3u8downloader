@@ -9,7 +9,6 @@ from __future__ import (absolute_import, division, print_function,
                         unicode_literals, with_statement)
 
 from setuptools import setup, find_packages
-from utils.versionutils import get_version_from_init_file
 
 
 def requirements_file_to_list(fn="requirements.txt"):
@@ -22,7 +21,7 @@ def requirements_file_to_list(fn="requirements.txt"):
 
 setup(
     name="m3u8downloader",
-    version=get_version_from_init_file(),
+    version=1.0,
     packages=find_packages(exclude=("utils",)),
     install_requires=requirements_file_to_list(),
     entry_points={
