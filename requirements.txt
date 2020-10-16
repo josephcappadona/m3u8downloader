@@ -1,2 +1,2 @@
-wells>=1.4.1
-requests>=2.21.0
+well==*
+requests==*
