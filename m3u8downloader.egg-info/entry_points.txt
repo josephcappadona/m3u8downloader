@@ -1,3 +1,0 @@
-[console_scripts]
-downloadm3u8 = m3u8downloader.main:main
-
