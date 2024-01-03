@@ -24,6 +24,7 @@ import multiprocessing
 import multiprocessing.queues
 import logging
 import platform
+import uuid
 
 import requests
 from wells.utils import retry
@@ -35,7 +36,7 @@ logger = logging.getLogger(__name__)
 SESSION = requests.Session()
 
 
-def get_local_file_for_url(tempdir, url, path_line=None):
+def get_local_file_for_url(tempdir, url, path_line=None, random_filenames = False, random_filename_lookup = {}):
     """get absolute local file path for given url.
 
     Args:
@@ -52,7 +53,14 @@ def get_local_file_for_url(tempdir, url, path_line=None):
     path = get_url_path(url)
     if path.startswith("/"):
         path = path[1:]
-    return os.path.normpath(os.path.join(tempdir, path))
+    
+    if random_filenames:
+        if os.path.normpath(os.path.join(tempdir, path)) not in random_filename_lookup:
+            random_filename_lookup[os.path.normpath(os.path.join(tempdir, path))] = os.path.normpath(os.path.join(tempdir, str(uuid.uuid4())))
+            
+        return random_filename_lookup[os.path.normpath(os.path.join(tempdir, path))]
+    else:
+        return os.path.normpath(os.path.join(tempdir, path))
 
 
 def get_default_cache_dir():
@@ -209,7 +217,8 @@ def safe_file_name(name):
 
 
 class M3u8Downloader:
-    def __init__(self, url, output_filename, tempdir=".", poolsize=5):
+    def __init__(self, url, output_filename, tempdir=".", poolsize=5, randomfilenames=False):
+        self.random_filename_lookup = {}
         self.start_url = url
 
         # make sure output_filename is a safe filename on platform.
@@ -236,6 +245,7 @@ class M3u8Downloader:
         self.media_playlist_localfile = None
         self.poolsize = poolsize
         self.total_fragments = 0
+        self.random_filenames = randomfilenames
         # {full_url: local_file}
         self.fragments = OrderedDict()
 
@@ -259,7 +269,9 @@ class M3u8Downloader:
                 else:
                     f.write(get_local_file_for_url(self.tempdir,
                                                    urljoin(m3u8_url, line),
-                                                   line))
+                                                   line,
+                                                   random_filenames=self.random_filenames,
+                                                   random_filename_lookup=self.random_filename_lookup))
                     f.write('\n')
         logger.info("http links rewrote in m3u8 file: %s", local_m3u8_filename)
 
@@ -301,7 +313,7 @@ class M3u8Downloader:
                                download is skipped.
 
         """
-        local_file = get_local_file_for_url(self.tempdir, remote_file_url)
+        local_file = get_local_file_for_url(self.tempdir, remote_file_url, random_filenames = self.random_filenames, random_filename_lookup=self.random_filename_lookup)
         if os.path.exists(local_file):
             logger.debug("skip downloaded resource: %s", remote_file_url)
             return local_file, True
@@ -472,6 +484,11 @@ def main():
         '--tempdir', default=os.path.join(get_default_cache_dir(),
                                           'm3u8downloader'),
         help='temp dir, used to store .ts files before combing them into mp4')
+    parser.add_argument(
+        '--randomfilenames',
+        action='store_true',
+        help='download fragments as random filenames'
+    )
     parser.add_argument('--concurrency', '-c', metavar='N', default=5,
                         help='number of fragments to download at a time')
     parser.add_argument('url', metavar='URL', help='the m3u8 url')
@@ -485,7 +502,8 @@ def main():
         SESSION.headers.update({'Origin': args.origin})
     downloader = M3u8Downloader(args.url, args.output,
                                 tempdir=args.tempdir,
-                                poolsize=args.concurrency)
+                                poolsize=args.concurrency,
+                                randomfilenames=args.randomfilenames)
     downloader.start()
 
 
