@@ -56,7 +56,9 @@ def get_local_file_for_url(tempdir, url, path_line=None, random_filenames = Fals
     
     if random_filenames:
         if os.path.normpath(os.path.join(tempdir, path)) not in random_filename_lookup:
-            random_filename_lookup[os.path.normpath(os.path.join(tempdir, path))] = os.path.normpath(os.path.join(tempdir, str(uuid.uuid4())))
+            root, ext = os.path.splitext(path)
+            rand_name = str(uuid.uuid4()) + ext
+            random_filename_lookup[os.path.normpath(os.path.join(tempdir, path))] = os.path.normpath(os.path.join(tempdir, rand_name))
             
         return random_filename_lookup[os.path.normpath(os.path.join(tempdir, path))]
     else:
