@@ -13,24 +13,25 @@ Features:
 from __future__ import print_function, unicode_literals
 
 import argparse
-import sys
-import os
-import os.path
-import subprocess
-import re
-from urllib.parse import urljoin, urlparse
-from collections import OrderedDict
+import hashlib
+import logging
 import multiprocessing
 import multiprocessing.queues
-import logging
+import os
+import os.path
 import platform
+import re
+import subprocess
+import sys
 import uuid
+from collections import OrderedDict
+from urllib.parse import urljoin, urlparse
 
 import requests
 from wells.utils import retry
 
 import m3u8downloader
-import m3u8downloader.configlogger    # pylint: disable=unused-import
+import m3u8downloader.configlogger  # pylint: disable=unused-import
 
 logger = logging.getLogger(__name__)
 SESSION = requests.Session()
@@ -315,14 +316,21 @@ class M3u8Downloader:
                                download is skipped.
 
         """
-        local_file = get_local_file_for_url(self.tempdir, remote_file_url, random_filenames = self.random_filenames, random_filename_lookup=self.random_filename_lookup)
+        parsed_url = urlparse(remote_file_url)
+        path = parsed_url.path.lstrip('/')
+        dir_name = os.path.dirname(path)
+        hashed_dir = hashlib.md5(dir_name.encode()).hexdigest()[:16] if dir_name else ''
+        local_file = os.path.join(self.tempdir, hashed_dir, os.path.basename(path))
+        
         if os.path.exists(local_file):
             logger.debug("skip downloaded resource: %s", remote_file_url)
             return local_file, True
+        
         content = get_url_content(remote_file_url)
         ensure_dir_exists_for(local_file)
         with open(local_file, 'wb') as f:
             f.write(content)
+        logger.debug("Saved resource: %s to %s", remote_file_url, local_file)
         return local_file, False
 
     def download_key(self, url, key_line):
@@ -410,12 +418,23 @@ class M3u8Downloader:
             content: the playlist content for resource at the url.
 
         """
+        # Hash the directory name for the playlist
+        parsed_url = urlparse(url)
+        path = parsed_url.path.lstrip('/')
+        dir_name = os.path.dirname(path)
+        hashed_dir = hashlib.md5(dir_name.encode()).hexdigest()[:16] if dir_name else ''
+        
         self.media_playlist_localfile, _ = self.mirror_url_resource(url)
         # always try rewrite because we can't be sure whether the copy in
-        # cache dir has been rewritten yet.
-        self.rewrite_http_link_in_m3u8_file(self.media_playlist_localfile, url)
         if content is None:
             content = get_url_content(url)
+
+        # Save original playlist content
+        with open(self.media_playlist_localfile, 'wb') as f:
+            f.write(content)
+
+        # cache dir has been rewritten yet.
+        self.rewrite_http_link_in_m3u8_file(self.media_playlist_localfile, url)
 
         fragment_urls = []
         for line in content.decode("utf-8").split('\n'):
@@ -430,6 +449,17 @@ class M3u8Downloader:
 
         self.download_fragments(fragment_urls)
         logger.info("media playlist all fragments downloaded")
+
+        # Rewrite playlist to use hashed directory for segment paths
+        with open(self.media_playlist_localfile, 'r') as f:
+            playlist_content = f.read()
+        new_playlist_content = playlist_content
+        for fragment_url in fragment_urls:
+            segment_path = urlparse(fragment_url).path.lstrip('/')
+            new_segment_path = os.path.join(hashed_dir, os.path.basename(segment_path))
+            new_playlist_content = new_playlist_content.replace(segment_path, new_segment_path)
+        with open(self.media_playlist_localfile, 'w') as f:
+            f.write(new_playlist_content)
 
     def process_master_playlist(self, url, content):
         """choose the highest quality media playlist, and download it.
